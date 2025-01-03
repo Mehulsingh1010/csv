@@ -1,29 +1,24 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+'use client';
 
 import { useState } from 'react';
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Papa from 'papaparse';
 
-interface CSVRow {
-  [key: string]: string | number | null; // Adjust types based on your CSV data structure
-}
-
 export default function Home() {
-  const [csvData, setCsvData] = useState<CSVRow[]>([]);
-  const [query, setQuery] = useState<string>('');
-  const [answer, setAnswer] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [csvData, setCsvData] = useState<object[]>([]);
+  const [query, setQuery] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setIsLoading(true);
       Papa.parse(file, {
-        complete: (result: { data: CSVRow[] }) => {
-          setCsvData(result.data);
+        complete: (result) => {
+          setCsvData(result.data as object[]);
           setIsLoading(false);
         },
         header: true,
@@ -32,19 +27,28 @@ export default function Home() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault: () => void; }) => {
     e.preventDefault();
     if (csvData.length === 0) {
       setAnswer("Please upload a CSV file first.");
       return;
     }
+
     setIsLoading(true);
+
     try {
+      // Send a subset of CSV data to avoid payload issues
+      const dataToSend = csvData.slice(0, 100); // Adjust row limit as needed
       const response = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, csvData }),
+        body: JSON.stringify({ query, csvData: dataToSend }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       setAnswer(data.answer);
     } catch (error) {
@@ -58,7 +62,7 @@ export default function Home() {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Dynamic CSV Analyzer</h1>
-      
+
       <Card className="mb-4">
         <CardHeader>
           <CardTitle>Upload CSV File</CardTitle>
@@ -73,6 +77,7 @@ export default function Home() {
           {isLoading && <p>Loading...</p>}
         </CardContent>
       </Card>
+
       {csvData.length > 0 && (
         <Card className="mb-4">
           <CardHeader>
@@ -102,6 +107,7 @@ export default function Home() {
           </CardContent>
         </Card>
       )}
+
       <Card>
         <CardHeader>
           <CardTitle>Ask a Question</CardTitle>
